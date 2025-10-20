@@ -1,0 +1,9 @@
+ipykernel
+ipython
+jupyter
+matplotlib-inline
+narwhals
+nbformat
+pandas
+plotly-express
+pynmea2
