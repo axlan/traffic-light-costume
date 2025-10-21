@@ -26,19 +26,17 @@
 #define GPS_BAUD 9600
 
 #define RED_LED_PIN 5
-#define GREEN_LED_PIN 6
-#define YELLOW_LED_PIN 7
+#define GREEN_LED_PIN 7
+#define YELLOW_LED_PIN 6
 
 #define SD_CHIP_SELECT_PIN 10
-
-#define STOP_PIN 8
 
 static SoftwareSerial gps_serial(SW_SERIAL_RX_PIN, SW_SERIAL_TX_PIN);
 
 static RMCParser rmc_parser;
 static TrafficLight light_ctrl;
 
-static bool is_log_stopped = true;
+static bool is_logging_engabled = false;
 static File log_file;
 static constexpr size_t SD_CARD_BUFFER_SIZE = 30;
 static RMCEntry sd_card_buffer[SD_CARD_BUFFER_SIZE];
@@ -47,12 +45,14 @@ static size_t sd_card_buffer_idx = 0;
 void WriteEntryToFile(const RMCEntry &entry)
 {
     // if the file opened okay, write to it:
-    if (!is_log_stopped)
+    if (!is_logging_engabled)
     {
         sd_card_buffer[sd_card_buffer_idx++] = entry;
         if (sd_card_buffer_idx >= SD_CARD_BUFFER_SIZE)
         {
+            log_file = SD.open("log.bin", FILE_WRITE);
             log_file.write((const uint8_t *)sd_card_buffer, sizeof(sd_card_buffer));
+            log_file.close();
             sd_card_buffer_idx = 0;
             Serial.println("W");
         }
@@ -63,36 +63,35 @@ void setup()
 {
     Serial.begin(115200);
 
-    pinMode(STOP_PIN, INPUT);
-
     pinMode(RED_LED_PIN, OUTPUT);
     pinMode(YELLOW_LED_PIN, OUTPUT);
     pinMode(GREEN_LED_PIN, OUTPUT);
+    digitalWrite(RED_LED_PIN, HIGH);
+    digitalWrite(YELLOW_LED_PIN, HIGH);
+    digitalWrite(GREEN_LED_PIN, HIGH);
 
-    if (!digitalRead(STOP_PIN))
+    Serial.print("Initializing SD card...");
+
+    if (!SD.begin(SD_CHIP_SELECT_PIN))
     {
-        Serial.print("Initializing SD card...");
-
-        if (!SD.begin(SD_CHIP_SELECT_PIN))
+        Serial.println("initialization failed!");
+    }
+    else
+    {
+        Serial.println("initialization done.");
+        // open the file. note that only one file can be open at a time,
+        // so you have to close this one before opening another.
+        log_file = SD.open("log.bin", FILE_WRITE);
+        if (!log_file)
         {
-            Serial.println("initialization failed!");
+            // if the file didn't open, print an error:
+            Serial.println("error opening log.bin");
         }
         else
         {
-            Serial.println("initialization done.");
-            // open the file. note that only one file can be open at a time,
-            // so you have to close this one before opening another.
-            log_file = SD.open("log.bin", FILE_WRITE);
-            if (!log_file)
-            {
-                // if the file didn't open, print an error:
-                Serial.println("error opening log.bin");
-            }
-            is_log_stopped = false;
+            is_logging_engabled = true;
+            log_file.close();
         }
-    }
-    else {
-        Serial.println("Logging disabled.");
     }
 
     gps_serial.begin(GPS_BAUD);
@@ -100,14 +99,6 @@ void setup()
 
 void loop()
 {
-    if (!is_log_stopped && digitalRead(STOP_PIN) && log_file)
-    {
-        Serial.println("Logging Stopped.");
-        // close the file:
-        log_file.close();
-        is_log_stopped = true;
-    }
-
     while (gps_serial.available() > 0)
     {
         if (rmc_parser.HandleByte((char)gps_serial.read()))
