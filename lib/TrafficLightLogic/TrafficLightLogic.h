@@ -11,7 +11,7 @@ class TrafficLight
 {
 public:
     static constexpr float YELLOW_THRESHOLD = 1.0;
-    static constexpr float GREEN_THRESHOLD = 2.0;
+    static constexpr float GREEN_THRESHOLD = 1.5;
 
     LightMode Update(float vel);
 
