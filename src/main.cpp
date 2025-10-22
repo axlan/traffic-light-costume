@@ -38,6 +38,7 @@ static TrafficLight light_ctrl;
 
 static bool is_logging_engabled = false;
 static File log_file;
+static char log_filename[16];
 static constexpr size_t SD_CARD_BUFFER_SIZE = 30;
 static RMCEntry sd_card_buffer[SD_CARD_BUFFER_SIZE];
 static size_t sd_card_buffer_idx = 0;
@@ -45,12 +46,12 @@ static size_t sd_card_buffer_idx = 0;
 void WriteEntryToFile(const RMCEntry &entry)
 {
     // if the file opened okay, write to it:
-    if (!is_logging_engabled)
+    if (is_logging_engabled)
     {
         sd_card_buffer[sd_card_buffer_idx++] = entry;
         if (sd_card_buffer_idx >= SD_CARD_BUFFER_SIZE)
         {
-            log_file = SD.open("log.bin", FILE_WRITE);
+            log_file = SD.open(log_filename, FILE_WRITE);
             log_file.write((const uint8_t *)sd_card_buffer, sizeof(sd_card_buffer));
             log_file.close();
             sd_card_buffer_idx = 0;
@@ -79,13 +80,33 @@ void setup()
     else
     {
         Serial.println("initialization done.");
+        // Determine file name based on the number of files in the SD root directory.
+        size_t file_count = 0;
+        File root = SD.open("/");
+        if (root)
+        {
+            File entry = root.openNextFile();
+            while (entry)
+            {
+                file_count++;
+                entry.close();
+                entry = root.openNextFile();
+            }
+            root.close();
+        }
+
+        // Create filename like "log000.bin", "log001.bin", ...
+        snprintf(log_filename, sizeof(log_filename), "log%03u.bin", (unsigned)file_count);
+        Serial.print("Using log file: ");
+        Serial.println(log_filename);
+
         // open the file. note that only one file can be open at a time,
         // so you have to close this one before opening another.
-        log_file = SD.open("log.bin", FILE_WRITE);
+        log_file = SD.open(log_filename, FILE_WRITE);
         if (!log_file)
         {
             // if the file didn't open, print an error:
-            Serial.println("error opening log.bin");
+            Serial.println("error opening file.");
         }
         else
         {

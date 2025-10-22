@@ -7,9 +7,9 @@
 // parse dddmm.mmmm or ddmm.mmmm
 static float ParseDegrees(const char *float_str)
 {
-    float full_value = atof(float_str);
-    float int_val = floor(full_value / 100.0);
-    float minutes = full_value - int_val * 100.0;
+    double full_value = atof(float_str);
+    double int_val = floor(full_value / 100.0);
+    double minutes = full_value - int_val * 100.0;
     return int_val + minutes / 60.0;
 }
 
